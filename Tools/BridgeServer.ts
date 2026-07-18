@@ -186,7 +186,8 @@ function searchMemory(query: string): string[] {
       { encoding: "utf8", timeout: 6000, maxBuffer: 4 * 1024 * 1024 },
     );
     if (r.status === 0 && r.stdout) {
-      for (const line of r.stdout.split("\n").map(l => l.trim()).filter(Boolean)) {
+      const banner = /^-{3,}|^Memory Retrieval:|^No matching|^Searched \d/;
+      for (const line of r.stdout.split("\n").map(l => l.trim()).filter(l => l && !banner.test(l))) {
         out.push(line.replace(HOME, "~"));
       }
     }
@@ -206,7 +207,8 @@ function searchConversations(query: string): string[] {
     files = readdirSync(dir).filter(f => f.endsWith(".jsonl"))
       .map(f => join(dir, f))
       .map(p => { try { const st = statSync(p); return { path: p, mtimeMs: st.mtimeMs }; } catch { return null; } })
-      .filter((x): x is { path: string; mtimeMs: number } => x !== null && x.mtimeMs > cutoff);
+      .filter((x): x is { path: string; mtimeMs: number } => x !== null && x.mtimeMs > cutoff)
+      .sort((a, b) => b.mtimeMs - a.mtimeMs); // newest transcripts first
   } catch { return ["conversation store unreadable"]; }
 
   const qTokens = [...new Set(tokenize(query))];
@@ -217,7 +219,12 @@ function searchConversations(query: string): string[] {
 
   for (const f of files) {
     if (cands.length >= MAX_CANDIDATES) break;
-    const r = spawnSync(RG, ["-i", "-m", "2", query, f.path], { encoding: "utf8", timeout: 5000, maxBuffer: 8 * 1024 * 1024 });
+    // Alternation over tokens, not the raw phrase — voice queries are multi-word
+    // and the exact phrase rarely appears verbatim in transcripts.
+    // -m is generous because most transcript lines are tool/meta noise that
+    // fails message extraction below — real text messages are the minority.
+    const pattern = qTokens.length ? qTokens.join("|") : query;
+    const r = spawnSync(RG, ["-i", "-m", "25", pattern, f.path], { encoding: "utf8", timeout: 5000, maxBuffer: 16 * 1024 * 1024 });
     const ageDays = (now - f.mtimeMs) / 86400_000;
     const recency = 1 + Math.exp(-ageDays / 14);
     for (const line of (r.stdout || "").split("\n").filter(Boolean)) {

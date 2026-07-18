@@ -15,3 +15,15 @@ bridge listening on :31341
 2026-07-18T18:42:11.122Z get_week_context q="" -> 1 in 1635ms
 2026-07-18T18:43:27.802Z get_week_context q="" -> 3 in 12ms
 2026-07-18T18:43:53.852Z get_week_context q="" -> 3 in 1ms
+bridge listening on :31341
+2026-07-18T19:11:47.100Z search_second_brain q="gala dinner" -> 8 in 589ms
+2026-07-18T19:11:47.143Z search_memory q="telegram voice" -> 8 in 33ms
+2026-07-18T19:11:47.738Z search_conversations q="BM25 keyword search" -> 0 in 585ms
+2026-07-18T19:11:47.749Z get_week_context q="" -> 3 in 1ms
+bridge listening on :31341
+2026-07-18T19:12:22.339Z search_conversations q="BM25 keyword search" -> 0 in 608ms
+2026-07-18T19:12:22.380Z search_memory q="telegram voice" -> 4 in 29ms
+2026-07-18T19:12:23.081Z search_second_brain q="AIGOV gala" -> 8 in 543ms
+bridge listening on :31341
+2026-07-18T19:13:04.200Z search_conversations q="BM25 keyword search" -> 8 in 731ms
+2026-07-18T19:13:04.757Z search_conversations q="gala dinner speech" -> 8 in 547ms

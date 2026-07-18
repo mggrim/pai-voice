@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 48/50
+progress: 54/57
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -102,6 +102,15 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-49: Anti: schedule questions never answered from static KB alone (prompt rule present in read-back)
 - [ ] ISC-50: Matthew confirms "what am I doing this week" answered from briefing data — [DEFERRED-VERIFY: PaiVoice-T4]
 
+### F9 — BM25 + recency retrieval (added 2026-07-18, ID-stable append)
+- [x] ISC-51: search_second_brain BM25-ranked with recency boost — "gala dinner" returns 07-16 digests first (curl probe)
+- [x] ISC-52: search_memory merges MemoryRetriever (banner-filtered) + BM25 over auto-memory — clean ranked results (curl probe)
+- [x] ISC-53: search_conversations token-alternation rg + newest-first + coverage×recency ranking — multi-word queries return 8 (curl probe)
+- [x] ISC-54: Index TTL cache — cold build 428ms/1041 docs, warm queries <50ms local (Engineer bench + log timings)
+- [x] ISC-55: Anti: unreadable files (evicted/TCC) skipped per-file, never fail the tool (walkMd try/catch, tested against tagged corpus)
+- [x] ISC-56: Public end-to-end returns ranked results through tunnel (curl: 8 results)
+- [ ] ISC-57: Matthew reports improved recall on a real call — [DEFERRED-VERIFY: PaiVoice-T5]
+
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
 - [x] ISC-33: Live mic-to-voice round-trip confirmed by Matthew 2026-07-18: "It works well" (after origin fix)
@@ -140,6 +149,8 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18: Telegram-threads access resolved via transcripts: channels bot routes DMs into Claude Code sessions, so search_conversations over ~/.claude/projects/-Users-mgrimes/*.jsonl (14-day window) IS thread access — no separate store exists.
 - 2026-07-18: "What am I doing this week" failed because all tools were keyword search; temporal questions need recency, not matching. Added no-query get_week_context over pre-dawn prep digests (which carry the icalBuddy calendar table — the TCC-safe calendar source).
 - 2026-07-18: Recent daily digests carry com.apple.macl (TCC tag, appeared ~07-15 in their generator) making them unreadable to launchd processes; stripped via FDA-session re-copy, bridge now skips tagged files gracefully. Surface to Matthew: dailies will re-acquire macl until the digest generator changes; prep digests unaffected.
+- 2026-07-18: MemoryRetriever corpus is 2 notes (MEMORY/KNOWLEDGE effectively unpopulated) — kept in the merge for when it fills, but auto-memory dir + transcripts are the real channel memory today. Surfaced to Matthew.
+- 2026-07-18: Engineer's phrase-regex rg pre-filter broke multi-word voice queries; fixed with token alternation. First-N-lines-per-file candidate selection biased to meta noise; fixed with newest-first file order + -m 25.
 - 2026-07-18: Lesson — destroyed Engineer's uncommitted worktree with `git worktree remove --force` before confirming the commit landed; recovered file from agent transcript via jq. Rule: verify worktree branch tip contains the artifact BEFORE removal.
 
 ## Verification
