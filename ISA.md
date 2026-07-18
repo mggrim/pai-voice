@@ -2,8 +2,8 @@
 project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
-phase: observe
-progress: 0/33
+phase: execute
+progress: 14/33
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -39,14 +39,14 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 ## Criteria
 
 ### F1 — ElevenLabs agent
-- [ ] ISC-1: GET agent by id returns 200; agent_id recorded in this ISA
-- [ ] ISC-2: Agent voice_id is `5gLuKtB16QIQv1vuSas1` (API read)
-- [ ] ISC-3: Agent LLM is a Claude-family model (API read)
-- [ ] ISC-4: Agent system prompt contains PAI persona and Matthew context (API read contains "Matthew")
-- [ ] ISC-5: Agent has a non-empty first_message (API read)
+- [x] ISC-1: GET agent by id returns 200; agent_id `agent_8501kxv2sfnkeq9s0r2kqtc2s906`
+- [x] ISC-2: Agent voice_id is `5gLuKtB16QIQv1vuSas1` (API read)
+- [x] ISC-3: Agent LLM is a Claude-family model (API read: claude-sonnet-4-6)
+- [x] ISC-4: Agent system prompt contains PAI persona and Matthew context (API read contains "Matthew")
+- [x] ISC-5: Agent has a non-empty first_message (API read)
 - [ ] ISC-6: Agent auth/allowlist restricts origins to the Pages host (API read)
-- [ ] ISC-7: Client overrides of system prompt disabled (API read)
-- [ ] ISC-8: Call-duration cap ≤ 1800s set on agent (API read)
+- [x] ISC-7: Client overrides of system prompt disabled (API read)
+- [x] ISC-8: Call-duration cap ≤ 1800s set on agent (API read: 900)
 
 ### F2 — Mini App page
 - [ ] ISC-9: GitHub repo exists and is reachable via `gh repo view`
