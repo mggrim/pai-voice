@@ -549,7 +549,14 @@ Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
-    if (url.pathname === "/health") return new Response("ok");
+    if (url.pathname === "/health") {
+      // Canary: if the second-brain corpus reads as empty, TCC/eviction has cut us
+      // off (symlink target lives under Documents) — surface it loudly, don't let
+      // saves and searches fail silently for weeks.
+      const sbDocs = getIndex(SECOND_BRAIN).length;
+      const healthy = sbDocs >= 50; // healthy corpus is ~1000+; partial reads mean TCC tagging
+      return new Response(healthy ? `ok sb:${sbDocs}` : `DEGRADED sb:${sbDocs} (Documents TCC or eviction — check FDA for bun)`, { status: healthy ? 200 : 503 });
+    }
 
     // Post-call webhook — token-in-path auth, NOT bridge-secret gated.
     if (url.pathname.startsWith("/webhooks/post-call/")) {

@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 55/58
+progress: 65/71
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -114,6 +114,21 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 ### F9 addendum
 - [x] ISC-58: search_conversations extracts Telegram reply tool_use inputs as "(PAI→Hub)" messages — Hub-thread replies searchable (curl probe returns briefing content)
 
+### F10 — Voice journal, dispatch, capture (added 2026-07-18, ID-stable append)
+- [x] ISC-59: get_journal_context returns digests/prev-entry/yesterday-convos/goals sections (Engineer temp-port test: 4; launchd: 2 — see ISC-66)
+- [x] ISC-60: save_journal_entry writes house-frontmatter entry, never overwrites (Engineer test: -voice suffix on collision)
+- [x] ISC-61: save_to_second_brain writes inbox note with source header (Engineer test)
+- [x] ISC-62: dispatch_task writes prompt file + detached send-prompt spawn, returns <10s (Engineer test vs /bin/true)
+- [x] ISC-63: post-call webhook saves transcript, ≥6 turns triggers processing dispatch, wrong token 404 (Engineer test + public 404 probe)
+- [x] ISC-64: 8 tools registered with typed schemas; agent read-back tool_ids=8, JOURNAL MODE in prompt
+- [x] ISC-65: ElevenLabs post-call webhook created (95c7dc70…), attached to agent, TunnelKeeper re-points it (PATCH shape verified 200)
+- [ ] ISC-66: [DEFERRED-VERIFY: PaiVoice-T6] launchd bridge reads full second-brain corpus after Matthew grants FDA to bun — probe: /health returns "ok sb:~1041"
+- [x] ISC-67: Anti: /health goes loud (503 DEGRADED) when second-brain corpus reads <50 docs (curl: DEGRADED sb:2 503 observed pre-threshold-fix)
+- [ ] ISC-68: [DEFERRED-VERIFY: PaiVoice-T7] HMAC signature verification on post-call webhook (compensating control: 32-hex URL token)
+- [ ] ISC-69: [DEFERRED-VERIFY: PaiVoice-T8] idempotency key on save paths (compensating: never-overwrite + instruction-level idempotent processing)
+- [x] ISC-70: 9am journal prompt sends voice web_app button to PRIVATE chat (web_app illegal in supergroups), text fallback in topic (file read-back)
+- [x] ISC-71: Anti: dispatch/webhook state files (.webhook-token, .tunnel-url, .tools-state.json) untracked in git (git ls-files clean)
+
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
 - [x] ISC-33: Live mic-to-voice round-trip confirmed by Matthew 2026-07-18: "It works well" (after origin fix)
@@ -154,6 +169,7 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18: Recent daily digests carry com.apple.macl (TCC tag, appeared ~07-15 in their generator) making them unreadable to launchd processes; stripped via FDA-session re-copy, bridge now skips tagged files gracefully. Surface to Matthew: dailies will re-acquire macl until the digest generator changes; prep digests unaffected.
 - 2026-07-18: MemoryRetriever corpus is 2 notes (MEMORY/KNOWLEDGE effectively unpopulated) — kept in the merge for when it fills, but auto-memory dir + transcripts are the real channel memory today. Surfaced to Matthew.
 - 2026-07-18: Engineer's phrase-regex rg pre-filter broke multi-word voice queries; fixed with token alternation. First-N-lines-per-file candidate selection biased to meta noise; fixed with newest-first file order + -m 25.
+- 2026-07-18 (F10): FDA-on-bun is a BROAD grant (bun runs arbitrary JS) — accepted risk, compensating control = /health canary + read-only tool design. TCC grants die on brew upgrades (path change) — canary catches it. Advisor gates 2026-07-18: HMAC verify + idempotency keys recorded as PaiVoice-T7/T8 rather than blocking; E4 thinking floor met at 4/6 (FeedbackMemoryConsult, ISA, Advisor, ReReadCheck) — budget-constrained, Cato unavailable on this machine (no codex CLI).
 - 2026-07-18: Lesson — destroyed Engineer's uncommitted worktree with `git worktree remove --force` before confirming the commit landed; recovered file from agent transcript via jq. Rule: verify worktree branch tip contains the artifact BEFORE removal.
 
 ## Verification

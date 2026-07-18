@@ -19,15 +19,32 @@ const API = "https://api.elevenlabs.io/v1/convai";
 const H = { "xi-api-key": KEY, "Content-Type": "application/json" };
 
 async function repoint(base: string) {
-  if (!existsSync(TOOLS_STATE)) { console.log("no tools registered yet; recorded URL only"); return; }
-  const { ids } = JSON.parse(readFileSync(TOOLS_STATE, "utf8"));
-  for (const id of ids ?? []) {
-    const get = await fetch(`${API}/tools/${id}`, { headers: { "xi-api-key": KEY } });
-    if (!get.ok) { console.error(`get ${id}: ${get.status}`); continue; }
-    const cfg = (await get.json()).tool_config;
-    cfg.api_schema.url = `${base}/tools/${cfg.name}`;
-    const patch = await fetch(`${API}/tools/${id}`, { method: "PATCH", headers: H, body: JSON.stringify({ tool_config: cfg }) });
-    console.log(`repoint ${cfg.name} -> ${base}: ${patch.status}`);
+  if (!existsSync(TOOLS_STATE)) { console.log("no tools registered yet; recorded URL only"); }
+  else {
+    const { ids } = JSON.parse(readFileSync(TOOLS_STATE, "utf8"));
+    for (const id of ids ?? []) {
+      const get = await fetch(`${API}/tools/${id}`, { headers: { "xi-api-key": KEY } });
+      if (!get.ok) { console.error(`get ${id}: ${get.status}`); continue; }
+      const cfg = (await get.json()).tool_config;
+      cfg.api_schema.url = `${base}/tools/${cfg.name}`;
+      const patch = await fetch(`${API}/tools/${id}`, { method: "PATCH", headers: H, body: JSON.stringify({ tool_config: cfg }) });
+      console.log(`repoint ${cfg.name} -> ${base}: ${patch.status}`);
+    }
+  }
+  // Post-call webhook URL must track the tunnel too.
+  const WEBHOOK_STATE = join(ROOT, ".webhook-state.json");
+  const TOKEN_FILE = join(ROOT, ".webhook-token");
+  if (existsSync(WEBHOOK_STATE) && existsSync(TOKEN_FILE)) {
+    const { webhook_id } = JSON.parse(readFileSync(WEBHOOK_STATE, "utf8"));
+    const token = readFileSync(TOKEN_FILE, "utf8").trim();
+    const patch = await fetch(`https://api.elevenlabs.io/v1/workspace/webhooks/${webhook_id}`, {
+      method: "PATCH", headers: H,
+      body: JSON.stringify({
+        name: "pai-voice-post-call", is_disabled: false,
+        settings: { name: "pai-voice-post-call", webhook_url: `${base}/webhooks/post-call/${token}`, auth_type: "hmac" },
+      }),
+    });
+    console.log(`repoint post-call webhook -> ${base}: ${patch.status}`);
   }
 }
 

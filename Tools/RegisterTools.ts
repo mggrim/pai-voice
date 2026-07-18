@@ -21,9 +21,55 @@ const defs = [
   { name: "search_memory", description: "Search PAI's long-term knowledge and working memory about people, projects, and past decisions. Use for questions about what PAI knows or remembers." },
   { name: "search_conversations", description: "Search Matthew's recent PAI conversation history, including his Telegram threads with the bot, from the last two weeks. Use when he references something 'we discussed' or a recent chat. CHECK THIS FIRST for anything about his recent life or interactions." },
   { name: "get_week_context", description: "Get Matthew's current week at a glance: his latest pre-dawn briefing with today's calendar, plus recent daily digests. Takes no meaningful query (pass an empty string). ALWAYS use this for questions like 'what am I doing this week / today / tomorrow', schedule questions, or 'what's on my plate'." },
+  {
+    name: "get_journal_context",
+    description: "Gather everything needed to facilitate Matthew's morning journal reflection on YESTERDAY: yesterday's briefing and digest, his previous journal entry, yesterday's PAI/Telegram conversations, and his life goals. Call this ONCE at the start of a journaling session. Takes no meaningful query.",
+  },
+  {
+    name: "save_journal_entry",
+    description: "Save the completed journal entry at the END of a journaling session. Synthesize the conversation into a written entry Matthew would want to reread — his observations, feelings, and any commitments — in his voice, not a transcript.",
+    schema: {
+      type: "object", required: ["title", "content"], description: "Journal entry",
+      properties: {
+        title: { type: "string", description: "Short evocative title for the entry" },
+        content: { type: "string", description: "The full journal entry text in markdown, first person, as Matthew" },
+        themes: { type: "string", description: "Comma-separated themes, e.g. 'family, teaching, research'" },
+        mood: { type: "string", description: "One-word mood if Matthew expressed one" },
+        date: { type: "string", description: "YYYY-MM-DD of the day being reflected on; omit for yesterday" },
+      },
+    },
+  },
+  {
+    name: "save_to_second_brain",
+    description: "Store an idea, decision, insight, or piece of information from this conversation into Matthew's second brain for later processing. Use whenever he says 'note that down', 'remember this', 'capture that', or when something clearly worth keeping emerges.",
+    schema: {
+      type: "object", required: ["title", "content"], description: "Note to capture",
+      properties: {
+        title: { type: "string", description: "Short descriptive title" },
+        content: { type: "string", description: "The content worth keeping, with enough context to be useful later" },
+      },
+    },
+  },
+  {
+    name: "dispatch_task",
+    description: "Dispatch a task to Matthew's full PAI agent running on his machine — it can send emails, edit files, do research, manage his calendar and second brain, and will report back to him on Telegram. Use when Matthew asks for something DONE (not just discussed): 'have PAI draft...', 'get it to look into...', 'add X to my...'. Confirm the task wording with Matthew before dispatching.",
+    schema: {
+      type: "object", required: ["task"], description: "Task dispatch",
+      properties: {
+        task: { type: "string", description: "Complete, self-contained task instruction with all context PAI needs — it cannot ask the voice call follow-up questions" },
+      },
+    },
+  },
 ];
 
-function toolConfig(d: { name: string; description: string }) {
+const QUERY_SCHEMA = {
+  type: "object",
+  required: ["query"],
+  description: "Search request",
+  properties: { query: { type: "string", description: "Short keyword query — one to three words work best" } },
+};
+
+function toolConfig(d: { name: string; description: string; schema?: object }) {
   return {
     tool_config: {
       type: "webhook",
@@ -34,12 +80,7 @@ function toolConfig(d: { name: string; description: string }) {
         url: `${BASE}/tools/${d.name}`,
         method: "POST",
         request_headers: { "X-Bridge-Secret": SECRET },
-        request_body_schema: {
-          type: "object",
-          required: ["query"],
-          description: "Search request",
-          properties: { query: { type: "string", description: "Short keyword query — one to three words work best" } },
-        },
+        request_body_schema: d.schema ?? QUERY_SCHEMA,
       },
     },
   };

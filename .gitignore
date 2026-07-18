@@ -3,3 +3,7 @@
 agent-prompt.txt
 .bridge-secret
 .kb-state.json
+.webhook-token
+.webhook-state.json
+.tools-state.json
+.tunnel-url
