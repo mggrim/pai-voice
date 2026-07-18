@@ -3,7 +3,7 @@
 # and sets the chat menu button. Reads secrets from local config; nothing hardcoded.
 set -euo pipefail
 
-TOKEN=$(rg -o '^TELEGRAM_BOT_TOKEN=.*' "$HOME/.claude/channels/telegram/.env.channels-only" | sed 's/TELEGRAM_BOT_TOKEN=//;s/"//g')
+TOKEN=$(grep -o '^TELEGRAM_BOT_TOKEN=.*' "$HOME/.claude/channels/telegram/.env.channels-only" | sed 's/TELEGRAM_BOT_TOKEN=//;s/"//g')
 source "$HOME/.claude/daemon/config.sh" 2>/dev/null || true
 CHAT_ID="${TELEGRAM_CHAT_ID:?TELEGRAM_CHAT_ID missing from daemon/config.sh}"
 URL="https://mggrim.github.io/pai-voice/"
