@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 65/71
+progress: 67/71
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -122,7 +122,7 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-63: post-call webhook saves transcript, ≥6 turns triggers processing dispatch, wrong token 404 (Engineer test + public 404 probe)
 - [x] ISC-64: 8 tools registered with typed schemas; agent read-back tool_ids=8, JOURNAL MODE in prompt
 - [x] ISC-65: ElevenLabs post-call webhook created (95c7dc70…), attached to agent, TunnelKeeper re-points it (PATCH shape verified 200)
-- [ ] ISC-66: [DEFERRED-VERIFY: PaiVoice-T6] launchd bridge reads full second-brain corpus after Matthew grants FDA to bun — probe: /health returns "ok sb:~1041"
+- [x] ISC-66: launchd bridge reads second-brain corpus — /health "ok sb:735" after eviction fix; FDA verified granted in TCC.db (bun/claude/tmux auth_value=2) but root cause was DATALESS EVICTION not TCC: launchd defaults to non-materializing (EDEADLK); fix = com.pai.sb-prewarm hourly materialization job (MaterializeDatalessFiles=true), bridge stays non-blocking skip-on-evicted
 - [x] ISC-67: Anti: /health goes loud (503 DEGRADED) when second-brain corpus reads <50 docs (curl: DEGRADED sb:2 503 observed pre-threshold-fix)
 - [ ] ISC-68: [DEFERRED-VERIFY: PaiVoice-T7] HMAC signature verification on post-call webhook (compensating control: 32-hex URL token)
 - [ ] ISC-69: [DEFERRED-VERIFY: PaiVoice-T8] idempotency key on save paths (compensating: never-overwrite + instruction-level idempotent processing)
@@ -169,6 +169,7 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18: Recent daily digests carry com.apple.macl (TCC tag, appeared ~07-15 in their generator) making them unreadable to launchd processes; stripped via FDA-session re-copy, bridge now skips tagged files gracefully. Surface to Matthew: dailies will re-acquire macl until the digest generator changes; prep digests unaffected.
 - 2026-07-18: MemoryRetriever corpus is 2 notes (MEMORY/KNOWLEDGE effectively unpopulated) — kept in the merge for when it fills, but auto-memory dir + transcripts are the real channel memory today. Surfaced to Matthew.
 - 2026-07-18: Engineer's phrase-regex rg pre-filter broke multi-word voice queries; fixed with token alternation. First-N-lines-per-file candidate selection biased to meta noise; fixed with newest-first file order + -m 25.
+- 2026-07-18: EDEADLK saga resolution — "TCC loss" diagnosis was WRONG; the launchd probe showed EDEADLK (dataless files + launchd non-materializing default). Setting MaterializeDatalessFiles on the bridge caused an infinite-block hang (thundering-herd materialization) — reverted; correct architecture is out-of-band prewarm (com.pai.sb-prewarm hourly, materializing context) + skip-on-evicted in the request path. brctl download was a no-op on this provider; real reads materialize.
 - 2026-07-18 (F10): FDA-on-bun is a BROAD grant (bun runs arbitrary JS) — accepted risk, compensating control = /health canary + read-only tool design. TCC grants die on brew upgrades (path change) — canary catches it. Advisor gates 2026-07-18: HMAC verify + idempotency keys recorded as PaiVoice-T7/T8 rather than blocking; E4 thinking floor met at 4/6 (FeedbackMemoryConsult, ISA, Advisor, ReReadCheck) — budget-constrained, Cato unavailable on this machine (no codex CLI).
 - 2026-07-18: Lesson — destroyed Engineer's uncommitted worktree with `git worktree remove --force` before confirming the commit landed; recovered file from agent transcript via jq. Rule: verify worktree branch tip contains the artifact BEFORE removal.
 

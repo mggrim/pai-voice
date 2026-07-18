@@ -39,3 +39,13 @@ bridge listening on :31341
 2026-07-18T20:47:18.752Z search_second_brain q="gala dinner" -> 0 in 1150ms
 bridge listening on :31341
 bridge listening on :31341
+bridge listening on :31341
+bridge listening on :31341
+bridge listening on :31341
+bridge listening on :31341
+2026-07-18T21:12:42.066Z get_week_context q="" -> 1 in 2400ms
+2026-07-18T21:12:42.215Z get_journal_context q="" -> 2 in 138ms
+2026-07-18T21:12:42.228Z search_second_brain q="gala dinner" -> 5 in 3ms
+bridge listening on :31341
+2026-07-18T21:24:02.757Z get_week_context q="" -> 3 in 20ms
+2026-07-18T21:24:02.984Z get_journal_context q="" -> 5 in 212ms
