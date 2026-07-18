@@ -232,7 +232,15 @@ function searchConversations(query: string): string[] {
       try {
         const j = JSON.parse(line);
         const c = j?.message?.content;
-        const text = typeof c === "string" ? c : Array.isArray(c) ? c.filter((b: any) => b.type === "text").map((b: any) => b.text).join(" ") : "";
+        // Text blocks + Telegram reply tool calls: PAI's side of Hub thread
+        // conversations goes out via mcp reply tools, not text blocks —
+        // without this, half of every thread is invisible to search.
+        const text = typeof c === "string" ? c : Array.isArray(c)
+          ? c.map((b: any) =>
+              b.type === "text" ? b.text
+              : b.type === "tool_use" && /telegram.*reply/i.test(b.name || "") ? `(PAI→Hub) ${b.input?.text ?? ""}`
+              : "").filter(Boolean).join(" ")
+          : "";
         if (!text) continue;
         const textTokens = new Set(tokenize(text));
         const present = qTokens.filter(t => textTokens.has(t)).length;

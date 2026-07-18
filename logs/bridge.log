@@ -27,3 +27,9 @@ bridge listening on :31341
 bridge listening on :31341
 2026-07-18T19:13:04.200Z search_conversations q="BM25 keyword search" -> 8 in 731ms
 2026-07-18T19:13:04.757Z search_conversations q="gala dinner speech" -> 8 in 547ms
+2026-07-18T19:46:10.468Z search_conversations q="yesterday" -> 8 in 477ms
+2026-07-18T19:46:45.688Z get_week_context q="" -> 0 in 3367ms
+2026-07-18T19:46:48.162Z search_conversations q="recent activity" -> 8 in 282ms
+2026-07-18T19:47:20.920Z search_conversations q="July 17" -> 7 in 466ms
+bridge listening on :31341
+2026-07-18T20:01:30.263Z search_conversations q="morning briefing" -> 8 in 522ms

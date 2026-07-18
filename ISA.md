@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 54/57
+progress: 55/58
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -110,6 +110,9 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-55: Anti: unreadable files (evicted/TCC) skipped per-file, never fail the tool (walkMd try/catch, tested against tagged corpus)
 - [x] ISC-56: Public end-to-end returns ranked results through tunnel (curl: 8 results)
 - [ ] ISC-57: Matthew reports improved recall on a real call — [DEFERRED-VERIFY: PaiVoice-T5]
+
+### F9 addendum
+- [x] ISC-58: search_conversations extracts Telegram reply tool_use inputs as "(PAI→Hub)" messages — Hub-thread replies searchable (curl probe returns briefing content)
 
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
