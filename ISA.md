@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 32/33
+progress: 37/37
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -79,9 +79,15 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-30: Ingress decision recorded in Decisions — funnel viable, deferred pending approval (PaiVoice-T2)
 - [x] ISC-31: Anti: sensitive-term scan of uploaded prompt clean (banned-pattern gate in generator + rg: 0 matches)
 
+### F6 — Knowledge access (added 2026-07-18, ID-stable append)
+- [x] ISC-34: KB docs uploaded — telos/state, second-brain digests, skills+architecture (API ids m3NB…, FGGZ…, YZVW…)
+- [x] ISC-35: Agent knowledge_base lists all 3 docs and rag.enabled true (API read-back)
+- [x] ISC-36: Prompt instructs agent to consult KB, verified in read-back (test("knowledge base") true)
+- [x] ISC-37: Anti: credential-pattern redaction active in SyncKnowledge.ts before upload (CRED_PATTERN gate)
+
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
-- [ ] ISC-33: Live mic-to-voice round-trip inside Telegram confirmed by Matthew — [DEFERRED-VERIFY: requires his tap; follow-up task PaiVoice-T1]
+- [x] ISC-33: Live mic-to-voice round-trip confirmed by Matthew 2026-07-18: "It works well" (after origin fix)
 
 ## Test Strategy
 
@@ -128,3 +134,5 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 ## Changelog
 
 - 2026-07-18 conjectured: origin-header enforcement (`require_origin_header: true`) was compatible with the Mini App webview and would harden the public agent. refuted by: two live calls failed instantly — conversation error 3000 "Client did not provide the origin header"; the WebRTC path (browser → LiveKit → ElevenLabs) never propagates the page's Origin to the conversation-initiation check, while the token endpoint (which my curl probes hit) does see it. learned: `require_origin_header` is unusable with `connectionType: 'webrtc'` regardless of client; origin-based controls only bite on the token layer, so the effective abuse guards for a public WebRTC agent are the platform call caps. criterion now: ISC-6 amended — allowlist retained, `require_origin_header` must be false; caps (ISC-8, concurrency 1, daily 50) are the primary enforcement.
+
+- 2026-07-18 (F6): SyncKnowledge.ts output + agent read-back {kb:[3 names], rag:true, prompt_mentions_kb:true}
