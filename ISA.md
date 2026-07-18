@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 37/37
+progress: 43/44
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -85,6 +85,15 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-36: Prompt instructs agent to consult KB, verified in read-back (test("knowledge base") true)
 - [x] ISC-37: Anti: credential-pattern redaction active in SyncKnowledge.ts before upload (CRED_PATTERN gate)
 
+### F7 — Live-tools bridge (added 2026-07-18, ID-stable append)
+- [x] ISC-38: BridgeServer.ts serves /health + 3 read-only search tools on :31341 under launchd KeepAlive (curl ok via launchd)
+- [x] ISC-39: Public HTTPS ingress live — trycloudflare tunnel; /health "ok" and authed search return over public edge (curl --resolve probe)
+- [x] ISC-40: Anti: requests without X-Bridge-Secret rejected 403 over the public URL (curl probe)
+- [x] ISC-41: 3 webhook tools registered and attached — tool_ids length 3 in agent read-back
+- [x] ISC-42: TunnelKeeper re-points tool URLs on tunnel rotation (repoint logic; .tunnel-url state)
+- [x] ISC-43: Daily KB re-sync scheduled — com.pai.voice-kbsync launchd 07:20
+- [ ] ISC-44: Matthew confirms a live call where PAI answers from second brain/threads — [DEFERRED-VERIFY: PaiVoice-T3]
+
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
 - [x] ISC-33: Live mic-to-voice round-trip confirmed by Matthew 2026-07-18: "It works well" (after origin fix)
@@ -119,6 +128,8 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18: Delegation floor 1/2 — show-your-math: remaining work is credential-bound sequential API calls; a second agent would need secret access and adds leak surface for zero parallelism gain.
 - 2026-07-18: ISC-30 — Tailscale running (`matthews-business-m2-mac-mini.tail28ec80.ts.net`); funnel is the custom-LLM ingress candidate but exposing this machine publicly needs Matthew's explicit approval. Deferred; follow-up PaiVoice-T2.
 - 2026-07-18: Advisor conflict resolved on facts: advisor assumed caps were client-side JS; they are ElevenLabs platform-side (`platform_settings.call_limits` verified by API read-back). Adopted advisor's vendored-SDK recommendation (esm.sh runtime resolution removed); mic-across-clients testing folded into ISC-33 deferred human verify.
+- 2026-07-18: Funnel dead end — App Store Tailscale GUI CLI (io.tailscale.ipn.macos 1.98.8) hangs silently on serve/funnel with no config written; pivoted to cloudflared quick tunnel + TunnelKeeper URL self-healing rather than replacing his Tailscale install. Revisit if he moves to standalone tailscaled.
+- 2026-07-18: Telegram-threads access resolved via transcripts: channels bot routes DMs into Claude Code sessions, so search_conversations over ~/.claude/projects/-Users-mgrimes/*.jsonl (14-day window) IS thread access — no separate store exists.
 - 2026-07-18: Lesson — destroyed Engineer's uncommitted worktree with `git worktree remove --force` before confirming the commit landed; recovered file from agent transcript via jq. Rule: verify worktree branch tip contains the artifact BEFORE removal.
 
 ## Verification
@@ -136,3 +147,5 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18 conjectured: origin-header enforcement (`require_origin_header: true`) was compatible with the Mini App webview and would harden the public agent. refuted by: two live calls failed instantly — conversation error 3000 "Client did not provide the origin header"; the WebRTC path (browser → LiveKit → ElevenLabs) never propagates the page's Origin to the conversation-initiation check, while the token endpoint (which my curl probes hit) does see it. learned: `require_origin_header` is unusable with `connectionType: 'webrtc'` regardless of client; origin-based controls only bite on the token layer, so the effective abuse guards for a public WebRTC agent are the platform call caps. criterion now: ISC-6 amended — allowlist retained, `require_origin_header` must be false; caps (ISC-8, concurrency 1, daily 50) are the primary enforcement.
 
 - 2026-07-18 (F6): SyncKnowledge.ts output + agent read-back {kb:[3 names], rag:true, prompt_mentions_kb:true}
+
+- 2026-07-18 (F7): tools tool_0101…/tool_3001…/tool_4101… attached; read-back {tool_ids:3, kb:3, rag:true, prompt_mentions_tools:true}; public probes health ok / n=1 / 403

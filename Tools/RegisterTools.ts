@@ -32,7 +32,7 @@ function toolConfig(d: { name: string; description: string }) {
       api_schema: {
         url: `${BASE}/tools/${d.name}`,
         method: "POST",
-        request_headers: [{ type: "value", name: "X-Bridge-Secret", value: SECRET }],
+        request_headers: { "X-Bridge-Secret": SECRET },
         request_body_schema: {
           type: "object",
           required: ["query"],
