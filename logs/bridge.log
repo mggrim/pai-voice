@@ -1,3 +1,17 @@
 bridge listening on :31341
 2026-07-18T18:13:02.314Z search_conversations q="PaiVoice" -> 1 in 626ms
 2026-07-18T18:13:10.578Z search_conversations q="PaiVoice" -> 1 in 560ms
+2026-07-18T18:38:02.856Z search_second_brain q="this week" -> 0 in 266ms
+2026-07-18T18:38:07.585Z search_conversations q="this week" -> 2 in 602ms
+2026-07-18T18:38:09.273Z search_second_brain q="journal recent activity" -> 0 in 192ms
+2026-07-18T18:38:12.095Z search_conversations q="AMJ manuscripts editorial" -> 0 in 479ms
+2026-07-18T18:38:33.619Z search_conversations q="weekend plans" -> 0 in 606ms
+2026-07-18T18:38:35.190Z search_second_brain q="weekend" -> 0 in 167ms
+bridge listening on :31341
+2026-07-18T18:41:20.466Z get_week_context q="" -> 2 in 23ms
+2026-07-18T18:41:28.670Z get_week_context q="" -> 2 in 2ms
+bridge listening on :31341
+2026-07-18T18:41:54.766Z get_week_context q="" -> 1 in 1633ms
+2026-07-18T18:42:11.122Z get_week_context q="" -> 1 in 1635ms
+2026-07-18T18:43:27.802Z get_week_context q="" -> 3 in 12ms
+2026-07-18T18:43:53.852Z get_week_context q="" -> 3 in 1ms

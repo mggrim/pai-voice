@@ -50,6 +50,30 @@ function searchConversations(query: string): string[] {
   return out;
 }
 
+function getWeekContext(_q: string): string[] {
+  // Recency-based, no query: latest pre-dawn prep digest (has the calendar table)
+  // plus the two most recent daily digests. For "what am I doing / this week" asks.
+  const out: string[] = [];
+  const grab = (dir: string, n: number, cap: number) => {
+    let files: string[] = [];
+    try { files = readdirSync(dir).filter(f => f.endsWith(".md")).sort().reverse(); } catch { return; }
+    let taken = 0;
+    for (const f of files) {
+      if (taken >= n) break;
+      try {
+        out.push(`=== ${f} ===\n${readFileSync(join(dir, f), "utf8").slice(0, cap)}`);
+        taken++;
+      } catch {
+        // iCloud-evicted (EDEADLK) — ask iCloud to rehydrate for next time, take the next file
+        spawnSync("/usr/bin/brctl", ["download", join(dir, f)], { timeout: 2000 });
+      }
+    }
+  };
+  grab(join(HOME, ".second-brain", "digests", "prep"), 1, 5000);
+  grab(join(HOME, ".second-brain", "digests", "daily"), 2, 2500);
+  return out;
+}
+
 const TOOLS: Record<string, (q: string) => string[]> = {
   search_second_brain: q => rgSearch(q, [join(HOME, ".second-brain")], ["-g", "!*.log"]),
   search_memory: q => rgSearch(q, [
@@ -57,6 +81,7 @@ const TOOLS: Record<string, (q: string) => string[]> = {
     join(HOME, ".claude", "projects", "-Users-mgrimes", "memory"),
   ]),
   search_conversations: searchConversations,
+  get_week_context: getWeekContext,
 };
 
 Bun.serve({
@@ -70,7 +95,7 @@ Bun.serve({
     if (!tool || req.method !== "POST") return new Response("not found", { status: 404 });
     let query = "";
     try { query = String((await req.json())?.query ?? "").slice(0, 200); } catch { /* empty */ }
-    if (!query) return Response.json({ results: [], note: "empty query" });
+    if (!query && name !== "get_week_context") return Response.json({ results: [], note: "empty query" });
     const t0 = Date.now();
     const results = tool(query);
     console.log(`${new Date().toISOString()} ${name} q="${query}" -> ${results.length} in ${Date.now() - t0}ms`);

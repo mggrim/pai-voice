@@ -19,7 +19,8 @@ const H = { "xi-api-key": KEY, "Content-Type": "application/json" };
 const defs = [
   { name: "search_second_brain", description: "Search Matthew's second brain (notes, ideas, execution queue, journal, digests) for a topic. Use when he asks about his notes, tasks, ideas, or anything he may have captured." },
   { name: "search_memory", description: "Search PAI's long-term knowledge and working memory about people, projects, and past decisions. Use for questions about what PAI knows or remembers." },
-  { name: "search_conversations", description: "Search Matthew's recent PAI conversation history, including his Telegram threads with the bot, from the last two weeks. Use when he references something 'we discussed' or a recent chat." },
+  { name: "search_conversations", description: "Search Matthew's recent PAI conversation history, including his Telegram threads with the bot, from the last two weeks. Use when he references something 'we discussed' or a recent chat. CHECK THIS FIRST for anything about his recent life or interactions." },
+  { name: "get_week_context", description: "Get Matthew's current week at a glance: his latest pre-dawn briefing with today's calendar, plus recent daily digests. Takes no meaningful query (pass an empty string). ALWAYS use this for questions like 'what am I doing this week / today / tomorrow', schedule questions, or 'what's on my plate'." },
 ];
 
 function toolConfig(d: { name: string; description: string }) {

@@ -3,7 +3,7 @@ project: PaiVoice
 task: Live full-duplex voice conversations with PAI inside Telegram via Mini App
 effort: E3
 phase: complete
-progress: 43/44
+progress: 48/50
 mode: build
 started: 2026-07-18T17:00:00Z
 updated: 2026-07-18T17:00:00Z
@@ -94,6 +94,14 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-43: Daily KB re-sync scheduled — com.pai.voice-kbsync launchd 07:20
 - [ ] ISC-44: Matthew confirms a live call where PAI answers from second brain/threads — [DEFERRED-VERIFY: PaiVoice-T3]
 
+### F8 — Temporal context + tool priority (added 2026-07-18, ID-stable append)
+- [x] ISC-45: get_week_context returns prep + 2 daily digests, no query needed (local + public probe: 3 sections)
+- [x] ISC-46: Tool registered and attached — 4 tool_ids in agent read-back
+- [x] ISC-47: Persona has explicit TOOL PRIORITY ORDER (conversations/memory first, week-context for temporal, KB last) — read-back grep
+- [x] ISC-48: grab() survives per-file read failures (macl/eviction) — returns remaining files
+- [x] ISC-49: Anti: schedule questions never answered from static KB alone (prompt rule present in read-back)
+- [ ] ISC-50: Matthew confirms "what am I doing this week" answered from briefing data — [DEFERRED-VERIFY: PaiVoice-T4]
+
 ### Experience
 - [x] ISC-32: Antecedent: button's web_app URL is HTTPS and returns 200 (curl) — precondition for in-Telegram open
 - [x] ISC-33: Live mic-to-voice round-trip confirmed by Matthew 2026-07-18: "It works well" (after origin fix)
@@ -130,6 +138,8 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - 2026-07-18: Advisor conflict resolved on facts: advisor assumed caps were client-side JS; they are ElevenLabs platform-side (`platform_settings.call_limits` verified by API read-back). Adopted advisor's vendored-SDK recommendation (esm.sh runtime resolution removed); mic-across-clients testing folded into ISC-33 deferred human verify.
 - 2026-07-18: Funnel dead end — App Store Tailscale GUI CLI (io.tailscale.ipn.macos 1.98.8) hangs silently on serve/funnel with no config written; pivoted to cloudflared quick tunnel + TunnelKeeper URL self-healing rather than replacing his Tailscale install. Revisit if he moves to standalone tailscaled.
 - 2026-07-18: Telegram-threads access resolved via transcripts: channels bot routes DMs into Claude Code sessions, so search_conversations over ~/.claude/projects/-Users-mgrimes/*.jsonl (14-day window) IS thread access — no separate store exists.
+- 2026-07-18: "What am I doing this week" failed because all tools were keyword search; temporal questions need recency, not matching. Added no-query get_week_context over pre-dawn prep digests (which carry the icalBuddy calendar table — the TCC-safe calendar source).
+- 2026-07-18: Recent daily digests carry com.apple.macl (TCC tag, appeared ~07-15 in their generator) making them unreadable to launchd processes; stripped via FDA-session re-copy, bridge now skips tagged files gracefully. Surface to Matthew: dailies will re-acquire macl until the digest generator changes; prep digests unaffected.
 - 2026-07-18: Lesson — destroyed Engineer's uncommitted worktree with `git worktree remove --force` before confirming the commit landed; recovered file from agent transcript via jq. Rule: verify worktree branch tip contains the artifact BEFORE removal.
 
 ## Verification
