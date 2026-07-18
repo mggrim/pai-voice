@@ -44,7 +44,7 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - [x] ISC-3: Agent LLM is a Claude-family model (API read: claude-sonnet-4-6)
 - [x] ISC-4: Agent system prompt contains PAI persona and Matthew context (API read contains "Matthew")
 - [x] ISC-5: Agent has a non-empty first_message (API read)
-- [x] ISC-6: Agent auth/allowlist restricts origins to the Pages host (API read: mggrim.github.io, require_origin_header true)
+- [x] ISC-6: Agent allowlist restricts origins where enforceable (API read: mggrim.github.io; require_origin_header false — incompatible with WebRTC, see Changelog)
 - [x] ISC-7: Client overrides of system prompt disabled (API read)
 - [x] ISC-8: Call-duration cap ≤ 1800s set on agent (API read: 900)
 
@@ -124,3 +124,7 @@ A live ElevenLabs Conversational AI agent carrying PAI's identity is reachable t
 - ISC-23..26: Telegram API — getMe ok (@Pai_mggrim_bot), sendMessage ok (msg 2018, chat 8386574938 only), setChatMenuButton ok
 - ISC-27..31: bun run exit 0 (7662 chars); banned-term scan clean; persona in agent read-back; funnel decision logged
 - ISC-33: [DEFERRED-VERIFY: PaiVoice-T1 — Matthew's live tap on iOS/Android/Desktop Telegram]
+
+## Changelog
+
+- 2026-07-18 conjectured: origin-header enforcement (`require_origin_header: true`) was compatible with the Mini App webview and would harden the public agent. refuted by: two live calls failed instantly — conversation error 3000 "Client did not provide the origin header"; the WebRTC path (browser → LiveKit → ElevenLabs) never propagates the page's Origin to the conversation-initiation check, while the token endpoint (which my curl probes hit) does see it. learned: `require_origin_header` is unusable with `connectionType: 'webrtc'` regardless of client; origin-based controls only bite on the token layer, so the effective abuse guards for a public WebRTC agent are the platform call caps. criterion now: ISC-6 amended — allowlist retained, `require_origin_header` must be false; caps (ISC-8, concurrency 1, daily 50) are the primary enforcement.
