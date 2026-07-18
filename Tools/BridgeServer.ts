@@ -9,21 +9,87 @@
  * indexes (10-min TTL). rg is retained only to pre-filter conversation
  * transcripts to a candidate set before local scoring.
  */
-import { readFileSync, readdirSync, statSync } from "fs";
+import { readFileSync, readdirSync, statSync, writeFileSync, mkdirSync, existsSync } from "fs";
+import { randomBytes } from "crypto";
 import type { Dirent } from "fs";
 import { join } from "path";
 import { spawnSync } from "child_process";
 
 const HOME = process.env.HOME!;
-const PORT = 31341;
+const PORT = Number(process.env.PORT_OVERRIDE) || 31341;
 const SECRET = readFileSync(join(HOME, "Projects", "PaiVoice", ".bridge-secret"), "utf8").trim();
 const RG = "/opt/homebrew/bin/rg";
 const MAX_SNIPPETS = 8;
 
 // Corpora roots. SECOND_BRAIN and MEMORY_DIR are indexed with BM25; SECOND_BRAIN
 // is a symlink — that's fine, we readdir the path as given so it's followed.
-const SECOND_BRAIN = join(HOME, ".second-brain");
+// SB is the write-side root (journal, inbox); overridable via PAI_SB_ROOT so
+// endpoint tests can point at a throwaway /tmp dir and never touch the real vault.
+const SB = process.env.PAI_SB_ROOT || join(HOME, ".second-brain");
+const SECOND_BRAIN = SB;
 const MEMORY_DIR = join(HOME, ".claude", "projects", "-Users-mgrimes", "memory");
+
+// Scheduler injection. PROMPTS_ROOT is where prompt files land; SEND_PROMPT is the
+// injector script. Both overridable so dispatch/webhook tests don't inject into the
+// live Channels session (point SEND_PROMPT at /bin/true, PROMPTS_ROOT at /tmp).
+const PROMPTS_ROOT = process.env.PAI_PROMPTS_ROOT ||
+  join(HOME, ".claude", "channels", "scheduler", "prompts");
+const SEND_PROMPT = process.env.PAI_SEND_PROMPT ||
+  join(HOME, ".claude", "channels", "scheduler", "send-prompt.sh");
+
+// --- Shared helpers -------------------------------------------------------
+// Local-time yesterday as YYYY-MM-DD.
+function yesterdayISO(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// Local-time today as YYYY-MM-DD.
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+// lowercase, non-alphanumerics → dash, trim/collapse dashes, max 40 chars.
+function slugify(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40).replace(/-+$/g, "");
+}
+// Newest .md filename in a dir (by mtime), or null. Non-recursive.
+function newestMd(dir: string): string | null {
+  try {
+    const files = readdirSync(dir).filter(f => f.endsWith(".md"))
+      .map(f => { try { return { f, m: statSync(join(dir, f)).mtimeMs }; } catch { return null; } })
+      .filter((x): x is { f: string; m: number } => x !== null)
+      .sort((a, b) => b.m - a.m);
+    return files.length ? files[0].f : null;
+  } catch { return null; }
+}
+// Recursively collect all .md files under root, each with mtime. Per-entry
+// try/catch so evicted/TCC-tagged files are skipped silently.
+function walkMdPaths(root: string): { path: string; mtimeMs: number }[] {
+  const out: { path: string; mtimeMs: number }[] = [];
+  const visit = (dir: string) => {
+    let entries: Dirent[];
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const p = join(dir, e.name);
+      try {
+        const st = statSync(p);
+        if (st.isDirectory()) { visit(p); continue; }
+        if (e.name.endsWith(".md")) out.push({ path: p, mtimeMs: st.mtimeMs });
+      } catch { /* skip */ }
+    }
+  };
+  visit(root);
+  return out;
+}
+// Fire-and-forget prompt injection: spawn send-prompt.sh detached and unref so we
+// return to the caller immediately (10s voice timeout; the script retries ~6min).
+function injectPrompt(promptFile: string, label: string): void {
+  const child = Bun.spawn(["/bin/bash", SEND_PROMPT, promptFile, label], {
+    stdout: "ignore", stderr: "ignore", stdin: "ignore",
+  });
+  child.unref();
+}
 
 const INDEX_TTL_MS = 10 * 60 * 1000; // lazy rebuild every 10 minutes
 const MAX_DOC_BYTES = 200 * 1024;    // skip files larger than 200KB
@@ -282,25 +348,245 @@ function getWeekContext(_q: string): string[] {
   return out;
 }
 
+// --- Journal context ------------------------------------------------------
+// No query. Assembles four sections for an evening journaling voice session:
+// yesterday's digests, the most recent journal entry (for continuity),
+// yesterday's conversations, and the active TELOS goals.
+function getJournalContext(_q: string): string[] {
+  const results: string[] = [];
+  const D = yesterdayISO();
+
+  // (a) Yesterday's prep + daily digests, 3000-char cap each. Missing → newest.
+  for (const kind of ["prep", "daily"] as const) {
+    const dir = join(SB, "digests", kind);
+    const target = join(dir, `${D}.md`);
+    try {
+      results.push(`=== ${kind} digest ${D} ===\n${readFileSync(target, "utf8").slice(0, 3000)}`);
+    } catch {
+      const latest = newestMd(dir);
+      if (latest) {
+        try {
+          results.push(`=== ${kind} digest (latest available: ${latest}) ===\n${readFileSync(join(dir, latest), "utf8").slice(0, 3000)}`);
+        } catch { /* skip */ }
+      }
+    }
+  }
+
+  // (b) Most recent journal entry (recursing into year/month subdirs), 2000-char cap.
+  try {
+    const entries = walkMdPaths(join(SB, "journal", "entries")).sort((a, b) => b.mtimeMs - a.mtimeMs);
+    if (entries.length) {
+      const e = entries[0];
+      results.push(`=== previous journal entry ${e.path.split("/").pop()} ===\n${readFileSync(e.path, "utf8").slice(0, 2000)}`);
+    }
+  } catch { /* skip */ }
+
+  // (c) Yesterday's conversations from session transcripts (last 3 days of files).
+  try {
+    const dir = join(HOME, ".claude", "projects", "-Users-mgrimes");
+    const cutoff = Date.now() - 3 * 86400_000;
+    let files: { path: string; mtimeMs: number }[] = [];
+    try {
+      files = readdirSync(dir).filter(f => f.endsWith(".jsonl"))
+        .map(f => join(dir, f))
+        .map(p => { try { const st = statSync(p); return { path: p, mtimeMs: st.mtimeMs, size: st.size }; } catch { return null; } })
+        .filter((x): x is { path: string; mtimeMs: number; size: number } => x !== null && x.mtimeMs > cutoff && x.size <= 20 * 1024 * 1024);
+    } catch { files = []; }
+
+    const turns: string[] = [];
+    for (const f of files) {
+      let raw = "";
+      try { raw = readFileSync(f.path, "utf8"); } catch { continue; }
+      for (const line of raw.split("\n")) {
+        if (!line) continue;
+        let j: any;
+        try { j = JSON.parse(line); } catch { continue; }
+        const ts = String(j.timestamp || "");
+        if (!ts.startsWith(D)) continue;
+        const c = j?.message?.content;
+        const text = typeof c === "string" ? c : Array.isArray(c)
+          ? c.map((b: any) =>
+              b.type === "text" ? b.text
+              : b.type === "tool_use" && /telegram.*reply/i.test(b.name || "") ? `(PAI→Hub) ${b.input?.text ?? ""}`
+              : "").filter(Boolean).join(" ")
+          : "";
+        if (!text) continue;
+        const hhmm = ts.slice(11, 16);
+        turns.push(`[${String(j.type)} ${hhmm}] ${text.slice(0, 220)}`);
+      }
+    }
+    if (turns.length) {
+      results.push(`=== yesterday's conversations (${D}) ===\n${turns.slice(-12).join("\n")}`);
+    }
+  } catch { /* skip conversations entirely on any failure */ }
+
+  // (d) TELOS active goals section only.
+  try {
+    const telos = readFileSync(join(HOME, ".claude", "PAI", "USER", "TELOS", "PRINCIPAL_TELOS.md"), "utf8");
+    const lines = telos.split("\n");
+    const start = lines.findIndex(l => l.startsWith("## Active Goals"));
+    if (start >= 0) {
+      let end = lines.length;
+      for (let i = start + 1; i < lines.length; i++) {
+        if (lines[i].startsWith("## ")) { end = i; break; }
+      }
+      results.push(`=== TELOS goals ===\n${lines.slice(start, end).join("\n").trim()}`);
+    }
+  } catch { /* skip */ }
+
+  return results;
+}
+
+// --- Save journal entry ---------------------------------------------------
+// Writes a house-convention journal entry. Never overwrites: if the date file
+// exists, writes <date>-voice.md instead.
+function saveJournalEntry(body: any): string[] {
+  const title = String(body?.title ?? "").trim();
+  const content = String(body?.content ?? "");
+  const themesRaw = String(body?.themes ?? "").trim();
+  const mood = String(body?.mood ?? "").trim();
+  const dateArg = String(body?.date ?? "").trim();
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(dateArg) ? dateArg : yesterdayISO();
+
+  const dir = join(SB, "journal", "entries");
+  mkdirSync(dir, { recursive: true });
+  let path = join(dir, `${date}.md`);
+  if (existsSync(path)) path = join(dir, `${date}-voice.md`);
+
+  const themes = themesRaw ? themesRaw.split(",").map(t => t.trim()).filter(Boolean) : [];
+  const themesBlock = themes.length ? `themes:\n${themes.map(t => `  - ${t}`).join("\n")}\n` : "";
+  const fm = `---\ndate: ${date}\ntitle: "${title.replace(/"/g, "'")}"\npeople: []\nlocations: []\n${themesBlock}mood: ${mood || "~"}\nsource: voice\n---\n\n${content}\n`;
+  writeFileSync(path, fm, "utf8");
+  return [`saved ${path}`];
+}
+
+// --- Save to second brain inbox -------------------------------------------
+function saveToSecondBrain(body: any): string[] {
+  const title = String(body?.title ?? "").trim();
+  const content = String(body?.content ?? "");
+  const dir = join(SB, "inbox");
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, `${todayISO()}-voice-${slugify(title)}.md`);
+  const doc = `# ${title}\n\n**Source:** PAI voice call — ${new Date().toISOString()}\n\n${content}`;
+  writeFileSync(path, doc, "utf8");
+  return [`saved ${path}`];
+}
+
+// --- Dispatch a task to the live PAI session ------------------------------
+function dispatchTask(body: any): string[] {
+  const task = String(body?.task ?? "").trim();
+  mkdirSync(PROMPTS_ROOT, { recursive: true });
+  const promptFile = join(PROMPTS_ROOT, `voice-dispatch-${Date.now()}.txt`);
+  const prompt = `Matthew asked for this via a PAI voice call just now:\n\n${task}\n\nExecute it now with full PAI capabilities. When finished, report the outcome to Matthew on Telegram (the channel session's normal reply path).`;
+  writeFileSync(promptFile, prompt, "utf8");
+  injectPrompt(promptFile, "voice-dispatch");
+  return ["dispatched to PAI — it will report back on Telegram"];
+}
+
+// Read-only, query-taking BM25 tools (existing) plus get_journal_context, which
+// ignores its query arg and returns the assembled journaling context.
 const TOOLS: Record<string, (q: string) => string[]> = {
   search_second_brain: searchSecondBrain,
   search_memory: searchMemory,
   search_conversations: searchConversations,
   get_week_context: getWeekContext,
+  get_journal_context: getJournalContext,
 };
+
+// Body-taking (write/action) tools — these read the parsed JSON body, not a query
+// string, so they're routed separately in the fetch handler below.
+const BODY_TOOLS: Record<string, (body: any) => string[]> = {
+  save_journal_entry: saveJournalEntry,
+  save_to_second_brain: saveToSecondBrain,
+  dispatch_task: dispatchTask,
+};
+
+// --- Webhook token --------------------------------------------------------
+// ElevenLabs post-call webhook is NOT bridge-secret gated (their servers can't
+// send our header), so the URL path itself carries a 32-hex-char secret token.
+// Read the existing token or mint one (mode 600) at startup.
+function loadWebhookToken(): string {
+  const tokenPath = join(HOME, "Projects", "PaiVoice", ".webhook-token");
+  try {
+    const t = readFileSync(tokenPath, "utf8").trim();
+    if (/^[0-9a-f]{32}$/.test(t)) return t;
+  } catch { /* not present / unreadable — mint below */ }
+  const token = randomBytes(16).toString("hex");
+  try { writeFileSync(tokenPath, token, { encoding: "utf8", mode: 0o600 }); }
+  catch { writeFileSync(tokenPath, token, "utf8"); }
+  return token;
+}
+const WEBHOOK_TOKEN = loadWebhookToken();
+
+// Process an ElevenLabs post-call payload: persist the transcript to the inbox
+// and, for substantive calls, queue a processing prompt for the live session.
+function handlePostCall(payload: any): void {
+  const data = payload?.data ?? {};
+  const turns: { role: string; message: string }[] = Array.isArray(data.transcript)
+    ? data.transcript.filter((t: any) => t && t.message != null)
+        .map((t: any) => ({ role: String(t.role ?? "unknown"), message: String(t.message) }))
+    : [];
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}-${String(now.getHours()).padStart(2, "0")}${String(now.getMinutes()).padStart(2, "0")}`;
+  const dir = join(SB, "inbox");
+  mkdirSync(dir, { recursive: true });
+  const transcriptPath = join(dir, `voice-call-${stamp}.md`);
+  const doc = `# Voice call transcript — ${now.toISOString()}\n\n**Conversation:** ${data.conversation_id ?? ""}\n\n`
+    + turns.map(t => `**${t.role}:** ${t.message}`).join("\n");
+  writeFileSync(transcriptPath, doc, "utf8");
+
+  if (turns.length >= 6) {
+    mkdirSync(PROMPTS_ROOT, { recursive: true });
+    const promptFile = join(PROMPTS_ROOT, `voice-process-${Date.now()}.txt`);
+    const prompt = `A PAI voice call just ended. Transcript saved at ${transcriptPath}. Read it and: extract any action items or commitments into the second brain inbox as separate notes; capture durable knowledge worth keeping; if the conversation was a journaling session, verify a journal entry exists in ~/.second-brain/journal/entries/ for the day discussed and create it from the transcript if missing. Keep Telegram notification to one short summary message.`;
+    writeFileSync(promptFile, prompt, "utf8");
+    injectPrompt(promptFile, "voice-process");
+  }
+}
 
 Bun.serve({
   port: PORT,
   async fetch(req) {
     const url = new URL(req.url);
     if (url.pathname === "/health") return new Response("ok");
+
+    // Post-call webhook — token-in-path auth, NOT bridge-secret gated.
+    if (url.pathname.startsWith("/webhooks/post-call/")) {
+      if (url.pathname !== `/webhooks/post-call/${WEBHOOK_TOKEN}` || req.method !== "POST") {
+        return new Response("not found", { status: 404 });
+      }
+      let payload: any = {};
+      try { payload = await req.json(); } catch { /* keep empty */ }
+      const turnCount = Array.isArray(payload?.data?.transcript)
+        ? payload.data.transcript.filter((t: any) => t && t.message != null).length : 0;
+      try { handlePostCall(payload); } catch (e) { console.log(`${new Date().toISOString()} post-call ERROR ${e}`); }
+      console.log(`${new Date().toISOString()} webhook post-call conv="${payload?.data?.conversation_id ?? ""}" turns=${turnCount}`);
+      return Response.json({ ok: true });
+    }
+
     if (req.headers.get("x-bridge-secret") !== SECRET) return new Response("forbidden", { status: 403 });
     const name = url.pathname.replace("/tools/", "");
+    if (req.method !== "POST") return new Response("not found", { status: 404 });
+
+    // Body-taking action tools (journal save, second-brain capture, dispatch).
+    const bodyTool = BODY_TOOLS[name];
+    if (bodyTool) {
+      let body: any = {};
+      try { body = (await req.json()) ?? {}; } catch { /* empty body */ }
+      const t0 = Date.now();
+      const results = bodyTool(body);
+      console.log(`${new Date().toISOString()} ${name} -> ${results.length} in ${Date.now() - t0}ms`);
+      return Response.json({ results });
+    }
+
     const tool = TOOLS[name];
-    if (!tool || req.method !== "POST") return new Response("not found", { status: 404 });
+    if (!tool) return new Response("not found", { status: 404 });
     let query = "";
     try { query = String((await req.json())?.query ?? "").slice(0, 200); } catch { /* empty */ }
-    if (!query && name !== "get_week_context") return Response.json({ results: [], note: "empty query" });
+    if (!query && name !== "get_week_context" && name !== "get_journal_context") {
+      return Response.json({ results: [], note: "empty query" });
+    }
     const t0 = Date.now();
     const results = tool(query);
     console.log(`${new Date().toISOString()} ${name} q="${query}" -> ${results.length} in ${Date.now() - t0}ms`);
