@@ -1,3 +1,5 @@
 .env
 *.env
 agent-prompt.txt
+.bridge-secret
+.kb-state.json
